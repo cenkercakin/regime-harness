@@ -1,0 +1,54 @@
+name: daily-pull
+
+# 02:17 UTC: after the US close (21:00 UTC) and the crypto daily candle close (00:00 UTC).
+on:
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: daily-pull
+  cancel-in-progress: false
+
+jobs:
+  pull:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Tests
+        run: pytest
+
+      - name: Verify stored data before pulling
+        run: python -m harness verify
+
+      - name: Pull today's snapshot
+        id: pull
+        continue-on-error: true   # one vendor failing must not block the others from being committed
+        run: python -m harness pull
+
+      - name: Verify after pulling
+        run: python -m harness verify
+
+      - name: Commit snapshot
+        run: |
+          git config user.name "harness-bot"
+          git config user.email "harness-bot@users.noreply.github.com"
+          git add data ledger
+          git diff --cached --quiet || git commit -m "snapshot $(date -u +%F)"
+          git push
+
+      - name: Fail the run if any source failed
+        if: steps.pull.outcome == 'failure'
+        run: exit 1
