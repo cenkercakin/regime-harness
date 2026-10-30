@@ -1,0 +1,19 @@
+{
+  "snapshots": [
+    {
+      "file": "2026-10-30.parquet",
+      "id": "2026-10-30",
+      "max_date": "2026-10-29",
+      "min_date": "2008-01-01",
+      "notes": [],
+      "rows_new": 4898,
+      "rows_pulled": 4898,
+      "rows_revised": 0,
+      "sha256": "537813a29812edf0e774e5e285be0e1ae4bc1db0f1899f23df54b750be9b497d",
+      "symbols": [
+        "USDTRY=X"
+      ]
+    }
+  ],
+  "source": "fx"
+}

@@ -1,0 +1,20 @@
+{
+  "snapshots": [
+    {
+      "file": "2026-10-30.parquet",
+      "id": "2026-10-30",
+      "max_date": "2026-10-29",
+      "min_date": "2016-01-01",
+      "notes": [],
+      "rows_new": 7770,
+      "rows_pulled": 7770,
+      "rows_revised": 0,
+      "sha256": "8370dfd92b0f6d5a31b98406a0850ab8d7b31406f27bf3ee284ae7ac3f6a3889",
+      "symbols": [
+        "BTC/USD",
+        "ETH/USD"
+      ]
+    }
+  ],
+  "source": "crypto"
+}

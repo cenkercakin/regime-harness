@@ -1,0 +1,25 @@
+{
+  "snapshots": [
+    {
+      "file": "2026-10-30.parquet",
+      "id": "2026-10-30",
+      "max_date": "2026-10-29",
+      "min_date": "2008-01-02",
+      "notes": [],
+      "rows_new": 33037,
+      "rows_pulled": 33037,
+      "rows_revised": 0,
+      "sha256": "fe9358300bf08252e14bd5954a6cb0070f5ce55da2fa85d4db3e1f267a7c2b1b",
+      "symbols": [
+        "BIL",
+        "EEM",
+        "EFA",
+        "GLD",
+        "SPY",
+        "TLT",
+        "VT"
+      ]
+    }
+  ],
+  "source": "us_etfs"
+}
