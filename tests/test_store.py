@@ -100,3 +100,16 @@ def test_unlisted_file_is_reported(tmp_path, bars):
     bars(["A"], "2026-01-01", 5).to_parquet(tmp_path / "src" / "2026-03-01.parquet")
     assert any("unlisted" in p for p in st.verify("src"))
     assert st.verify("src") and SnapshotStore(tmp_path).sources() == ["src"]
+
+
+def test_large_delta_is_split_into_parts_and_reloads(tmp_path, bars):
+    st = SnapshotStore(tmp_path, rows_per_part=50)
+    df = bars([f"S{i}" for i in range(8)], "2026-01-01", 30)   # 240 rows -> 5 parts
+    e = st.write("src", df, "2026-02-01")
+    assert len(e["parts"]) == 5
+    pd.testing.assert_frame_equal(st.load("src").reset_index(drop=True), st.load("src", as_of="2026-02-01"))
+    assert len(st.load("src")) == 240 and st.verify("src") == []
+    # a later small delta goes back to a single file, and both load together
+    df2 = bars([f"S{i}" for i in range(8)], "2026-01-01", 31)
+    e2 = st.write("src", df2, "2026-02-02")
+    assert "file" in e2 and len(st.load("src")) == 248

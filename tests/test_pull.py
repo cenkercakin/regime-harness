@@ -66,3 +66,22 @@ def test_unhealthy_pull_writes_nothing(tmp_path):
     st = SnapshotStore(tmp_path)
     r = pull_source(st, "src", CFG, date(2026, 1, 6), {"fake": bad})
     assert not r.written and any("B missing" in e for e in r.errors)
+
+
+def test_large_universe_tolerates_a_few_missing_and_bad_symbols(tmp_path):
+    syms = [f"S{i}" for i in range(20)]
+    cfg = {"loader": "fake", "symbols": syms, "start": "2026-01-01", "lookback_days": None, "max_stale_days": 3, "max_missing_frac": 0.1}
+
+    def fetch(c, start, end):
+        df = make_bars(syms[:-1], "2026-01-01", (end - date(2026, 1, 1)).days)   # one symbol missing
+        df.loc[3, "close"] = -1.0                                                 # one impossible row
+        return df
+    st = SnapshotStore(tmp_path)
+    r = pull_source(st, "big", cfg, date(2026, 3, 1), {"fake": fetch})
+    assert r.written, r.errors
+    assert any("no data" in w for w in r.warnings) and any("impossible" in w for w in r.warnings)
+
+    def fetch_many_missing(c, start, end):
+        return make_bars(syms[:10], "2026-01-01", (end - date(2026, 1, 1)).days)
+    r2 = pull_source(SnapshotStore(tmp_path / "b"), "big", cfg, date(2026, 3, 1), {"fake": fetch_many_missing})
+    assert not r2.written and "missing" in r2.errors[0]

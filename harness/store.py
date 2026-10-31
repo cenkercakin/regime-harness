@@ -72,9 +72,16 @@ def _changed_mask(new: pd.DataFrame, old: pd.DataFrame, cols: list[str]) -> np.n
     return changed
 
 
+def _files(entry: dict) -> list[tuple[str, str]]:
+    if "parts" in entry:
+        return [(p["file"], p["sha256"]) for p in entry["parts"]]
+    return [(entry["file"], entry["sha256"])]
+
+
 class SnapshotStore:
-    def __init__(self, root: str | os.PathLike):
+    def __init__(self, root: str | os.PathLike, rows_per_part: int = 400_000):
         self.root = Path(root)
+        self.rows_per_part = rows_per_part
 
     # ---- manifest -------------------------------------------------------
     def _dir(self, source: str) -> Path:
@@ -114,10 +121,11 @@ class SnapshotStore:
             raise StoreError(f"{source}: no snapshots stored")
         frames = []
         for e in entries:
-            path = self._dir(source) / e["file"]
-            if _sha256(path) != e["sha256"]:
-                raise StoreError(f"{source}: hash mismatch in {e['file']} (file was altered)")
-            frames.append(pd.read_parquet(path))
+            for f, h in _files(e):
+                path = self._dir(source) / f
+                if _sha256(path) != h:
+                    raise StoreError(f"{source}: hash mismatch in {f} (file was altered)")
+                frames.append(pd.read_parquet(path))
         frames = [f for f in frames if len(f)]
         if not frames:
             raise StoreError(f"{source}: snapshots contain no rows")
@@ -165,16 +173,24 @@ class SnapshotStore:
 
         d = self._dir(source)
         d.mkdir(parents=True, exist_ok=True)
-        fname = f"{snapshot_id}.parquet"
-        path = d / fname
-        if path.exists():
-            raise StoreError(f"{path} exists but is not in the manifest; refusing to overwrite")
-        delta.to_parquet(path, index=False)
+        # Large deltas (a first pull of hundreds of stocks) are split by symbol so no
+        # single file approaches GitHub's 100 MB per-file limit.
+        symbols = sorted(delta["symbol"].unique()) if len(delta) else []
+        n_parts = max(1, -(-len(delta) // self.rows_per_part))
+        groups = [symbols[i::n_parts] for i in range(n_parts)] if n_parts > 1 else [None]
+        parts = []
+        for i, g in enumerate(groups):
+            fname = f"{snapshot_id}.parquet" if n_parts == 1 else f"{snapshot_id}-part{i:02d}.parquet"
+            path = d / fname
+            if path.exists():
+                raise StoreError(f"{path} exists but is not in the manifest; refusing to overwrite")
+            chunk = delta if g is None else delta[delta["symbol"].isin(g)]
+            chunk.to_parquet(path, index=False, compression="zstd")
+            parts.append({"file": fname, "sha256": _sha256(path)})
 
         entry = {
             "id": snapshot_id,
-            "file": fname,
-            "sha256": _sha256(path),
+            **({"file": parts[0]["file"], "sha256": parts[0]["sha256"]} if n_parts == 1 else {"parts": parts}),
             "rows_pulled": int(len(new)),
             "rows_new": n_new,
             "rows_revised": n_revised,
@@ -194,16 +210,17 @@ class SnapshotStore:
         problems = []
         d = self._dir(source)
         entries = self.manifest(source)["snapshots"]
-        listed = {e["file"] for e in entries}
+        listed = {f for e in entries for f, _ in _files(e)}
         ids = [e["id"] for e in entries]
         if ids != sorted(ids) or len(set(ids)) != len(ids):
             problems.append(f"{source}: snapshot ids are not strictly increasing")
         for e in entries:
-            path = d / e["file"]
-            if not path.exists():
-                problems.append(f"{source}: missing file {e['file']}")
-            elif _sha256(path) != e["sha256"]:
-                problems.append(f"{source}: hash mismatch in {e['file']}")
+            for f, h in _files(e):
+                path = d / f
+                if not path.exists():
+                    problems.append(f"{source}: missing file {f}")
+                elif _sha256(path) != h:
+                    problems.append(f"{source}: hash mismatch in {f}")
         for p in d.glob("*.parquet"):
             if p.name not in listed:
                 problems.append(f"{source}: unlisted file {p.name}")

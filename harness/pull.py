@@ -15,7 +15,20 @@ def _crypto_fetch(cfg, start, end):
 
 
 def _yahoo_fetch(cfg, start, end):
-    return yahoo.fetch_daily(cfg["symbols"], start, end)
+    """Large universes go in batches with a pause, to stay under Yahoo's rate limits."""
+    import time
+
+    import pandas as pd
+
+    syms, size = cfg["symbols"], cfg.get("batch_size", 0)
+    if not size or len(syms) <= size:
+        return yahoo.fetch_daily(syms, start, end)
+    parts = []
+    for i in range(0, len(syms), size):
+        parts.append(yahoo.fetch_daily(syms[i:i + size], start, end))
+        time.sleep(cfg.get("batch_pause_s", 2))
+    parts = [p for p in parts if len(p)]
+    return pd.concat(parts, ignore_index=True) if parts else pd.DataFrame(columns=["symbol", "date", "open", "high", "low", "close", "volume", "dividends", "splits"])
 
 
 DEFAULT_FETCHERS = {"crypto": _crypto_fetch, "yahoo": _yahoo_fetch}
@@ -52,16 +65,43 @@ def pull_source(store: SnapshotStore, name: str, cfg: dict, snapshot_date: date,
         res.errors.append(f"fetch failed: {type(exc).__name__}: {exc}")
         return res
 
+    expected = cfg["symbols"]
+    if cfg.get("max_missing_frac"):
+        df, expected, notes = _quarantine(df, expected, cfg["max_missing_frac"])
+        if expected is None:
+            res.errors.extend(notes)
+            return res
+        res.warnings.extend(notes)
     rep = health.check(
         df,
         snapshot_date,
-        expected_symbols=cfg["symbols"],
+        expected_symbols=expected,
         max_stale_days=cfg["max_stale_days"],
         max_abs_daily_return=cfg.get("max_abs_daily_return", 0.5),
     )
-    res.errors, res.warnings = rep.errors, rep.warnings
+    res.errors, res.warnings = rep.errors, res.warnings + rep.warnings
     if not rep.ok:
         return res
-    res.entry = store.write(name, df, snap_id, notes=rep.warnings)
+    notes = res.warnings if len(res.warnings) <= 40 else res.warnings[:40] + [f"... and {len(res.warnings) - 40} more warnings"]
+    res.entry = store.write(name, df, snap_id, notes=notes)
     res.written = True
     return res
+
+
+def _quarantine(df, expected, max_missing_frac):
+    """For large universes (hundreds of stocks), one bad or missing ticker must not
+    block the rest. Drop rows with impossible prices; tolerate a few missing tickers.
+    Returns (clean_df, symbols_to_expect, notes); symbols is None if too many are missing."""
+    notes = []
+    if len(df):
+        bad = (df[["open", "high", "low", "close"]] <= 0).any(axis=1) | (df["high"] < df["low"])
+        if bad.any():
+            notes.append(f"dropped {int(bad.sum())} rows with impossible prices across {df.loc[bad, 'symbol'].nunique()} symbols")
+            df = df[~bad]
+    got = set(df["symbol"].unique()) if len(df) else set()
+    missing = [s for s in expected if s not in got]
+    if len(missing) > max_missing_frac * len(expected):
+        return df, None, [f"{len(missing)} of {len(expected)} symbols missing (limit {max_missing_frac:.0%}), e.g. {missing[:10]}"]
+    if missing:
+        notes.append(f"{len(missing)} symbols returned no data: {missing[:20]}{' ...' if len(missing) > 20 else ''}")
+    return df, [s for s in expected if s in got], notes

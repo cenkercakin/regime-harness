@@ -11,6 +11,16 @@ Notes on choices
   in full so split rewrites of history are caught as revisions.
 """
 
+from pathlib import Path
+
+_TICKERS = Path(__file__).resolve().parent.parent / "config" / "bist_tickers.txt"
+
+
+def bist_symbols() -> list[str]:
+    lines = _TICKERS.read_text().splitlines() if _TICKERS.exists() else []
+    return [f"{t.strip()}.IS" for t in lines if t.strip() and not t.startswith("#")]
+
+
 SOURCES = {
     "crypto": {
         "loader": "crypto",
@@ -35,6 +45,26 @@ SOURCES = {
         "start": "2008-01-01",
         "lookback_days": None,
         "max_stale_days": 5,
+        "max_abs_daily_return": 0.25,
+    },
+    "bist": {
+        # All currently listed BIST stocks. Survivorship-biased: delisted names are absent.
+        "loader": "yahoo",
+        "symbols": bist_symbols(),
+        "start": "2010-01-01",
+        "lookback_days": None,      # full re-pull: Yahoo rewrites history after splits / bonus issues
+        "max_stale_days": 7,
+        "max_abs_daily_return": 0.4,
+        "max_missing_frac": 0.10,
+        "batch_size": 50,
+        "batch_pause_s": 2,
+    },
+    "bist_index": {
+        "loader": "yahoo",
+        "symbols": ["XU100.IS", "XU030.IS"],
+        "start": "2010-01-01",
+        "lookback_days": None,
+        "max_stale_days": 7,
         "max_abs_daily_return": 0.25,
     },
 }
