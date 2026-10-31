@@ -1,0 +1,11 @@
+id: tsmom-etf-v1
+source_url: https://doi.org/10.1016/j.jfineco.2011.11.003   # Moskowitz, Ooi & Pedersen (2012)
+venue: us_etfs
+signal: per risky ETF, trailing total return over L months vs BIL over the same window
+universe: [VT, SPY, EFA, EEM, TLT, GLD]; cash = BIL
+rebalance: month-end close, fill next close (lag 1)
+variants: L in [3, 6, 9, 12] months
+costs_assumed: 10 bps per side
+mechanism: slow diffusion of information and investor herding make trends persist; the other side is late, mean-reverting money
+expected_sign: positive active return, lower drawdown
+kill_condition: walk-forward excess return <= 0 after costs, or DSR(active) <= 0.95, or PBO >= 0.20

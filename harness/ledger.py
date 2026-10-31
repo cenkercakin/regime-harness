@@ -82,5 +82,18 @@ class TrialLedger:
         return problems
 
     def count(self, venue: str | None = None) -> int:
-        """Trial count N, optionally for one venue. Failed trials count too."""
-        return sum(1 for r in self.rows() if venue is None or r["venue"] == venue)
+        """Trial count N, optionally for one venue. Failed trials count too.
+
+        A row that tested a family of variants counts as `n_variants` trials,
+        because each variant was a chance to get lucky.
+        """
+        return sum(int(r.get("n_variants", 1)) for r in self.rows() if venue is None or r["venue"] == venue)
+
+    def sr_batches(self, venue: str) -> list[tuple[int, float, float]]:
+        """(n, mean, variance) of per-period Sharpes for each logged batch, for pooled DSR variance."""
+        out = []
+        for r in self.rows():
+            m = r.get("metrics", {})
+            if r["venue"] == venue and "variant_sr_mean" in m:
+                out.append((int(r.get("n_variants", 1)), float(m["variant_sr_mean"]), float(m.get("variant_sr_var", 0.0))))
+        return out

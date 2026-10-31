@@ -68,6 +68,21 @@ def cmd_ledger(args) -> int:
     return 0
 
 
+def cmd_research(args) -> int:
+    from . import research
+
+    store, led = SnapshotStore(args.data_root), TrialLedger(args.ledger)
+    if args.strategy == "tsmom":
+        rep = research.run_tsmom(store, led, args.as_of, vault=args.vault)
+    else:
+        if args.vault:
+            print("calibration runs never use the vault")
+            return 2
+        rep = research.run_calibration(store, led, args.as_of)
+    print(rep.table())
+    return 0
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(prog="harness")
     p.add_argument("--data-root", default="data/raw")
@@ -80,6 +95,11 @@ def main(argv=None) -> int:
     sub.add_parser("verify", help="check hashes and the ledger chain").set_defaults(func=cmd_verify)
     sub.add_parser("status", help="summary per source").set_defaults(func=cmd_status)
     sub.add_parser("ledger", help="trial counts per venue").set_defaults(func=cmd_ledger)
+    rp = sub.add_parser("research", help="run a strategy family through the validation gate (logs to the ledger)")
+    rp.add_argument("strategy", choices=["tsmom", "calibration"])
+    rp.add_argument("--as-of", help="snapshot id to use, default latest")
+    rp.add_argument("--vault", action="store_true", help="one-time test on the locked last 18 months")
+    rp.set_defaults(func=cmd_research)
     args = p.parse_args(argv)
     return args.func(args)
 

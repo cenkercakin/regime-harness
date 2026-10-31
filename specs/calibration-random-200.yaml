@@ -1,0 +1,5 @@
+id: calibration-random-200
+venue: calibration
+signal: per risky ETF, in or out at random each month (p = 0.5), seeds 0-199
+purpose: no-skill control; the gate must reject it
+kill_condition: none, it is expected to fail every run
