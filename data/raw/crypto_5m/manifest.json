@@ -1,0 +1,44 @@
+{
+  "snapshots": [
+    {
+      "id": "2026-10-31",
+      "max_date": "2026-10-30 23:55:00",
+      "min_date": "2017-01-01 00:00:00",
+      "notes": [],
+      "parts": [
+        {
+          "file": "2026-10-31-part00.parquet",
+          "sha256": "54cb5cfd06b78a9751e7c7dbffd4ed1814f4a9af73efe35b6eaf1c34b061e48c"
+        },
+        {
+          "file": "2026-10-31-part01.parquet",
+          "sha256": "dafae730c47d460e0d69e5db6c1d756bfe118b92f818f412c42f06d79e75fd0e"
+        },
+        {
+          "file": "2026-10-31-part02.parquet",
+          "sha256": "276c9f8ecbc54f06ef96a2d63f39acfefac03435866adfa3a4499a8ee17c2c11"
+        },
+        {
+          "file": "2026-10-31-part03.parquet",
+          "sha256": "276c9f8ecbc54f06ef96a2d63f39acfefac03435866adfa3a4499a8ee17c2c11"
+        },
+        {
+          "file": "2026-10-31-part04.parquet",
+          "sha256": "276c9f8ecbc54f06ef96a2d63f39acfefac03435866adfa3a4499a8ee17c2c11"
+        },
+        {
+          "file": "2026-10-31-part05.parquet",
+          "sha256": "276c9f8ecbc54f06ef96a2d63f39acfefac03435866adfa3a4499a8ee17c2c11"
+        }
+      ],
+      "rows_new": 2064776,
+      "rows_pulled": 2064776,
+      "rows_revised": 0,
+      "symbols": [
+        "BTC/USD",
+        "ETH/USD"
+      ]
+    }
+  ],
+  "source": "crypto_5m"
+}
