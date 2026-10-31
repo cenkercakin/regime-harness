@@ -8,6 +8,7 @@ reach paper trading.
 - **Phase 2 (done):** backtest engine and validation gate.
 - **Phase 3 (done):** 31-strategy library + monthly selector (hard switch / soft tilt / blend). Results: `reports/phase3-2026-10-31.md`.
 - **Phase 5 (done):** BIST data (630 stocks, XU100), short selling with SPK ban calendar, 11 stock strategies incl. correlation-breakdown pairs. Results: `reports/phase5-bist-2026-10-31.md`.
+- **Grid trading (done):** 5-minute BTC/ETH data (2.06M bars), conservative spot-grid simulator, 8 trials. Results: `reports/grid-crypto-2026-10-31.md`.
 - Next: LLM idea loop (Phase 4), TEFAS sleeve.
 
 ## What's here
@@ -38,6 +39,7 @@ python -m harness research tsmom         # TSMOM family through the gate
 python -m harness research tsmom --vault # one-time vault test, survivors only
 python -m harness research library --selectors-only  # selectors only; strategies already logged
 python -m harness research bist          # BIST stock library through the gate
+python -m harness research grid          # crypto grid trading (5-minute bars)
 python -m harness ledger                 # trial counts per venue
 ```
 

@@ -105,3 +105,9 @@ def test_bad_spec_refused():
         simulate(b, GridSpec(0.01, 20, "weekly"))
     with pytest.raises(ValueError):
         simulate(b, GridSpec(0.01, 7))
+
+
+def test_fee_share_measured_against_value_at_the_time():
+    b = bars_from(np.full(20, 100.0))
+    r = simulate(b, GridSpec(0.01, 20, "monthly", fee=0.001))
+    assert r.fee_frac == pytest.approx(0.5 * 0.001)     # only the opening 50% buy was charged

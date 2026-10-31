@@ -57,7 +57,7 @@ def run(store: SnapshotStore, ledger: TrialLedger, snap: str | None = None) -> d
             V[spec.name], V2[spec.name] = r.daily, r2.daily
             years = len(r.daily) / PPY
             info[(sym, spec.name)] = {
-                "fills_yr": r.fills / years, "recentres": r.recentres, "fee_drag_yr": r.fees_paid / r.equity.mean() / years,
+                "fills_yr": r.fills / years, "recentres": r.recentres, "fee_drag_yr": r.fee_frac / years,
                 "at_bottom": r.at_bottom, "at_top": r.at_top, "avg_coin_share": float(r.coin_share.mean()),
             }
             for label, rule in (("5m", None), ("1h", "1h"), ("1d", "1D")):

@@ -51,6 +51,7 @@ class GridResult:
     fills: int
     recentres: int
     fees_paid: float
+    fee_frac: float          # sum of each fee as a share of the portfolio value at that moment
     at_bottom: float         # share of bars pinned at the lowest level (fully in coin)
     at_top: float            # share of bars pinned at the highest level (fully in cash)
     coin_share: pd.Series    # coin share of value, daily
@@ -68,7 +69,7 @@ def simulate(bars: pd.DataFrame, spec: GridSpec) -> GridResult:
     n, half, g, fee, tt = len(bars), spec.levels // 2, 1.0 + spec.spacing, spec.fee, spec.trade_through
     powers = g ** np.arange(-half, half + 1)
 
-    cash, coin, fees_paid = 1.0, 0.0, 0.0
+    cash, coin, fees_paid, fee_frac = 1.0, 0.0, 0.0, 0.0
     fills = recentres = bottom = top = 0
     eq = np.empty(n)
     share = np.empty(n)
@@ -77,7 +78,7 @@ def simulate(bars: pd.DataFrame, spec: GridSpec) -> GridResult:
     pending = False
 
     def rebalance(price):
-        nonlocal cash, coin, fees_paid
+        nonlocal cash, coin, fees_paid, fee_frac
         value = cash + coin * price
         target = value / 2.0 / price
         trade = target - coin
@@ -85,6 +86,7 @@ def simulate(bars: pd.DataFrame, spec: GridSpec) -> GridResult:
         cash -= trade * price + f
         coin = target
         fees_paid += f
+        fee_frac += f / value if value > 0 else 0.0
 
     for t in range(n):
         new_month = t > 0 and month[t] != month[t - 1]
@@ -107,6 +109,7 @@ def simulate(bars: pd.DataFrame, spec: GridSpec) -> GridResult:
                 qty = min(u, cash / (price * (1 + fee)))
                 if qty <= 0:
                     break
+                fee_frac += qty * price * fee / (cash + coin * price)
                 coin += qty
                 cash -= qty * price * (1 + fee)
                 fees_paid += qty * price * fee
@@ -118,6 +121,7 @@ def simulate(bars: pd.DataFrame, spec: GridSpec) -> GridResult:
                 qty = min(u, coin)
                 if qty <= 0:
                     break
+                fee_frac += qty * price * fee / (cash + coin * price)
                 coin -= qty
                 cash += qty * price * (1 - fee)
                 fees_paid += qty * price * fee
@@ -138,7 +142,7 @@ def simulate(bars: pd.DataFrame, spec: GridSpec) -> GridResult:
     daily = d_eq.pct_change()
     daily.iloc[0] = d_eq.iloc[0] / 1.0 - 1.0
     return GridResult(
-        equity=equity, daily=daily, fills=fills, recentres=recentres, fees_paid=fees_paid,
+        equity=equity, daily=daily, fills=fills, recentres=recentres, fees_paid=fees_paid, fee_frac=fee_frac,
         at_bottom=bottom / n, at_top=top / n, coin_share=pd.Series(share, index=ts).groupby(day).last(),
     )
 
