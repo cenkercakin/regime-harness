@@ -1,0 +1,20 @@
+{
+  "snapshots": [
+    {
+      "file": "2026-10-31.parquet",
+      "id": "2026-10-31",
+      "max_date": "2026-10-30",
+      "min_date": "2010-01-04",
+      "notes": [],
+      "rows_new": 8424,
+      "rows_pulled": 8424,
+      "rows_revised": 0,
+      "sha256": "bb231180f7ad6a89df4b9c60c4f2685401625e0bc9adc2179fbe7b487c70a7c8",
+      "symbols": [
+        "XU030.IS",
+        "XU100.IS"
+      ]
+    }
+  ],
+  "source": "bist_index"
+}
