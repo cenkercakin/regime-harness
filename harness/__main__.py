@@ -86,6 +86,15 @@ def cmd_research(args) -> int:
         open(path, "w").write(phase3.to_markdown(res))
         print(f"report written to {path}")
         return 0
+    if args.strategy == "grid":
+        from . import grid_run
+        import os
+        out = grid_run.run(store, led, args.as_of)
+        os.makedirs("reports", exist_ok=True)
+        path = f"reports/grid-crypto-{out['snapshot']}.md"
+        open(path, "w").write(grid_run.to_markdown(out))
+        print(f"report written to {path}")
+        return 0
     if args.strategy == "bist":
         from . import phase5
         import os
@@ -119,7 +128,7 @@ def main(argv=None) -> int:
     sub.add_parser("status", help="summary per source").set_defaults(func=cmd_status)
     sub.add_parser("ledger", help="trial counts per venue").set_defaults(func=cmd_ledger)
     rp = sub.add_parser("research", help="run a strategy family through the validation gate (logs to the ledger)")
-    rp.add_argument("strategy", choices=["tsmom", "calibration", "library", "bist"])
+    rp.add_argument("strategy", choices=["tsmom", "calibration", "library", "bist", "grid"])
     rp.add_argument("--selectors-only", action="store_true", help="library: skip re-gating the strategies (avoids double-counting trials)")
     rp.add_argument("--selector-version", default="v2")
     rp.add_argument("--as-of", help="snapshot id to use, default latest")
