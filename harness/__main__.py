@@ -23,6 +23,9 @@ def cmd_pull(args) -> int:
     failed = False
     for name in names:
         res = pull_source(store, name, SOURCES[name], snap)
+        if res.skipped:
+            print(f"[skip] {name}: snapshot {snap.isoformat()} already exists")
+            continue
         if res.written:
             e = res.entry
             print(f"[ok]   {name}: {e['rows_pulled']} pulled, {e['rows_new']} new, {e['rows_revised']} revised, up to {e['max_date']}")

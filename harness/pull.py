@@ -25,6 +25,7 @@ DEFAULT_FETCHERS = {"crypto": _crypto_fetch, "yahoo": _yahoo_fetch}
 class PullResult:
     source: str
     written: bool = False
+    skipped: bool = False      # today's snapshot already exists (e.g. a manual run got there first)
     entry: dict | None = None
     errors: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
@@ -35,7 +36,8 @@ def pull_source(store: SnapshotStore, name: str, cfg: dict, snapshot_date: date,
     res = PullResult(source=name)
     snap_id = snapshot_date.isoformat()
     if snap_id in store.snapshot_ids(name):
-        res.errors.append(f"snapshot {snap_id} already exists")
+        res.skipped = True
+        res.warnings.append(f"snapshot {snap_id} already exists; nothing to do")
         return res
 
     start = date.fromisoformat(cfg["start"])

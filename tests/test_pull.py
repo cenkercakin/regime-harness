@@ -48,7 +48,7 @@ def test_same_day_pull_refused(tmp_path):
     st, calls = SnapshotStore(tmp_path), []
     pull_source(st, "src", CFG, date(2026, 3, 1), fetcher_for(calls))
     r = pull_source(st, "src", CFG, date(2026, 3, 1), fetcher_for(calls))
-    assert not r.written and "already exists" in r.errors[0]
+    assert not r.written and r.skipped and not r.errors   # not a failure: a late cron run after a manual one
 
 
 def test_fetch_failure_writes_nothing(tmp_path):
