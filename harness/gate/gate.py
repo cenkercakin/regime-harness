@@ -82,7 +82,12 @@ def research_gate(
     periods_per_year: float,
     params: dict | None = None,
     th: Thresholds = Thresholds(),
+    n_trials_floor: int = 0,
+    sr_variance_floor: float = 0.0,
 ) -> GateReport:
+    """`n_trials_floor` / `sr_variance_floor`: when a whole pre-registered library is
+    evaluated, every member is judged against the library's full trial count and
+    Sharpe dispersion, so the order of evaluation cannot make the bar easier."""
     ppy = periods_per_year
     cutoff = vault_cutoff(variants.index, th.vault_months)
     V = variants.loc[variants.index < cutoff]
@@ -118,8 +123,9 @@ def research_gate(
     srs = sr_by_var.to_numpy(dtype=float)
     srs = srs[~np.isnan(srs)]
     selected = str(sr_by_var.idxmax())
-    n_trials = ledger.count(venue) + n_var
+    n_trials = max(ledger.count(venue) + n_var, n_trials_floor)
     var = stats.pooled_sr_variance(ledger.sr_batches(venue) + [(len(srs), float(srs.mean()), float(srs.var(ddof=1)) if len(srs) > 1 else 0.0)])
+    var = max(var, sr_variance_floor)
     best = A[selected]
     sk, ku = moments(best)
     dsr, sr_star = stats.deflated_sharpe(sharpe(best.to_numpy()), int(best.notna().sum()), sk, ku, n_trials, var)

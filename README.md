@@ -6,7 +6,8 @@ reach paper trading.
 
 - **Phase 1 (done):** data layer, snapshot store, trial ledger, daily pull.
 - **Phase 2 (done):** backtest engine and validation gate.
-- Next: regime layer (Phase 3), LLM idea loop (Phase 4), BIST/TEFAS sleeves (Phase 5).
+- **Phase 3 (done):** 31-strategy library + monthly selector (hard switch / soft tilt / blend). Results: `reports/phase3-2026-10-31.md`.
+- Next: LLM idea loop (Phase 4), BIST/TEFAS sleeves (Phase 5).
 
 ## What's here
 
@@ -18,7 +19,9 @@ reach paper trading.
 | `harness/loaders/` | Crypto via ccxt (Coinbase public data), ETFs/gold/cash/USDTRY via yfinance. |
 | `harness/engine/` | Total returns from raw closes + dividends; drift-aware backtest with execution lag (1 = next close, 2 = TEFAS-style next NAV); per-symbol costs with a TRY→USD spread placeholder; metrics. |
 | `harness/gate/` | Walk-forward, purged/embargoed K-fold, Deflated Sharpe (N from the ledger), PBO via CSCV, one-shot 18-month vault. |
-| `harness/strategies/` | `tsmom` (time-series momentum), `random_entry` (no-skill control). |
+| `harness/strategies/library.py` | 31 pre-registered strategies (trend, momentum, mean reversion, risk, regime, seasonality, defensive, crypto), each with source and mechanism. |
+| `harness/selector.py` | Monthly selector: ranks strategies by trailing Sharpe above cash; hard switch, soft tilt or blend; crypto capped at 25%; switching costs incl. FX placeholder. |
+| `harness/phase3.py` | Runs the library and selectors through the gate and writes the report. |
 | `.github/workflows/daily-pull.yml` | Runs tests, pulls, verifies and commits a snapshot every day at 02:17 UTC. |
 
 ## Commands
@@ -32,6 +35,7 @@ python -m harness status                 # rows, last bar, revisions per source
 python -m harness research calibration   # 200 random variants; must FAIL
 python -m harness research tsmom         # TSMOM family through the gate
 python -m harness research tsmom --vault # one-time vault test, survivors only
+python -m harness research library --selectors-only  # selectors only; strategies already logged
 python -m harness ledger                 # trial counts per venue
 ```
 

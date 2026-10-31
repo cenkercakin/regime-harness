@@ -72,6 +72,15 @@ def cmd_research(args) -> int:
     from . import research
 
     store, led = SnapshotStore(args.data_root), TrialLedger(args.ledger)
+    if args.strategy == "library":
+        from . import phase3
+        import os
+        res = phase3.run(store, led, args.as_of, gate_library=not args.selectors_only, selector_version=args.selector_version)
+        os.makedirs("reports", exist_ok=True)
+        path = f"reports/phase3-{res.snapshot}-{args.selector_version}.md"
+        open(path, "w").write(phase3.to_markdown(res))
+        print(f"report written to {path}")
+        return 0
     if args.strategy == "tsmom":
         rep = research.run_tsmom(store, led, args.as_of, vault=args.vault)
     else:
@@ -96,7 +105,9 @@ def main(argv=None) -> int:
     sub.add_parser("status", help="summary per source").set_defaults(func=cmd_status)
     sub.add_parser("ledger", help="trial counts per venue").set_defaults(func=cmd_ledger)
     rp = sub.add_parser("research", help="run a strategy family through the validation gate (logs to the ledger)")
-    rp.add_argument("strategy", choices=["tsmom", "calibration"])
+    rp.add_argument("strategy", choices=["tsmom", "calibration", "library"])
+    rp.add_argument("--selectors-only", action="store_true", help="library: skip re-gating the strategies (avoids double-counting trials)")
+    rp.add_argument("--selector-version", default="v2")
     rp.add_argument("--as-of", help="snapshot id to use, default latest")
     rp.add_argument("--vault", action="store_true", help="one-time test on the locked last 18 months")
     rp.set_defaults(func=cmd_research)
