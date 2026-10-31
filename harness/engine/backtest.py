@@ -33,6 +33,9 @@ class CostModel:
     bps: dict = field(default_factory=dict)
     fx_spread_bps: float = 0.0
     fx_symbols: frozenset = frozenset()
+    # Optional time-varying cost (dates x symbols, bps per side), e.g. cheaper while a
+    # stock is in the most-liquid group. Overrides `bps`/`default_bps` where present.
+    bps_frame: pd.DataFrame | None = field(default=None, compare=False, hash=False)
 
     def per_side(self, symbols) -> np.ndarray:
         return np.array(
@@ -40,7 +43,8 @@ class CostModel:
         ) / 1e4
 
     def scaled(self, k: float) -> "CostModel":
-        return CostModel(self.default_bps * k, {s: v * k for s, v in self.bps.items()}, self.fx_spread_bps * k, self.fx_symbols)
+        return CostModel(self.default_bps * k, {s: v * k for s, v in self.bps.items()}, self.fx_spread_bps * k, self.fx_symbols,
+                         None if self.bps_frame is None else self.bps_frame * k)
 
 
 CRYPTO_COSTS = CostModel(default_bps=15.0)          # 0.10% fee + 0.05% slippage per side
@@ -59,8 +63,31 @@ class TimingError(ValueError):
     pass
 
 
-def run(targets: pd.DataFrame, returns: pd.DataFrame, costs: CostModel, lag: int = 1) -> BacktestResult:
-    """Simulate `targets` (rows = rebalance dates, NaN rows ignored) over daily `returns`."""
+@dataclass(frozen=True)
+class ShortRules:
+    """Short selling, when allowed.
+
+    * `shortable`: bool frame (dates x symbols). False on a date means no short may
+      be held that day: a short held into a False day is force-covered at that close.
+      This is how SPK short-selling bans and universe membership are applied.
+    * `borrow_bps_annual`: stock-lending fee on the short notional, accrued daily.
+    * Gross exposure (|long| + |short|) is capped at `max_gross`; net exposure must
+      stay within [0, 1] (no net-short books, no leverage on the net).
+    """
+
+    shortable: pd.DataFrame
+    borrow_bps_annual: float = 500.0
+    periods_per_year: float = 252.0
+    max_gross: float = 2.0
+
+
+def run(targets: pd.DataFrame, returns: pd.DataFrame, costs: CostModel, lag: int = 1, shorts: ShortRules | None = None,
+        unpriced: str = "raise") -> BacktestResult:
+    """Simulate `targets` (rows = rebalance dates, NaN rows ignored) over daily `returns`.
+
+    `unpriced`: what to do when a fill wants to trade a symbol with no price that day.
+    "raise" (default; ETFs, crypto) treats it as a bug. "hold" (single stocks, which get
+    suspended) leaves that position as it is until the stock trades again."""
     if lag < 1:
         raise TimingError("lag must be >= 1: a signal computed at close t cannot also fill at close t")
     targets = targets.reindex(columns=returns.columns).dropna(how="all")
@@ -69,10 +96,17 @@ def run(targets: pd.DataFrame, returns: pd.DataFrame, costs: CostModel, lag: int
     if not targets.index.isin(returns.index).all():
         raise TimingError("target dates must be trading dates in the returns index")
     tw = targets.fillna(0.0).to_numpy(dtype=float)
-    if (tw < -1e-12).any():
-        raise ValueError("Phase 2 engine is long-only")
-    if (tw.sum(axis=1) > 1 + 1e-9).any():
-        raise ValueError("target weights sum above 1 (no leverage)")
+    if shorts is None:
+        if (tw < -1e-12).any():
+            raise ValueError("short positions need ShortRules (engine is long-only by default)")
+        if (tw.sum(axis=1) > 1 + 1e-9).any():
+            raise ValueError("target weights sum above 1 (no leverage)")
+    else:
+        net_exp, gross_exp = tw.sum(axis=1), np.abs(tw).sum(axis=1)
+        if (net_exp > 1 + 1e-9).any() or (net_exp < -1e-9).any():
+            raise ValueError("net exposure must stay within [0, 1]")
+        if (gross_exp > shorts.max_gross + 1e-9).any():
+            raise ValueError(f"gross exposure above {shorts.max_gross}")
 
     dates = returns.index
     pos = {d: i for i, d in enumerate(dates)}
@@ -86,24 +120,49 @@ def run(targets: pd.DataFrame, returns: pd.DataFrame, costs: CostModel, lag: int
     avail = ~np.isnan(R)
     R = np.nan_to_num(R)
     c = costs.per_side(returns.columns)
+    C = None
+    if costs.bps_frame is not None:
+        C = costs.bps_frame.reindex(index=returns.index, columns=returns.columns).ffill().to_numpy(dtype=float) / 1e4
     n, m = R.shape
+    can_short = None
+    if shorts is not None:
+        can_short = shorts.shortable.reindex(index=returns.index, columns=returns.columns).fillna(False).to_numpy(dtype=bool)
+        borrow = shorts.borrow_bps_annual / 1e4 / shorts.periods_per_year
     w = np.zeros(m)
     net, gross, turn = np.zeros(n), np.zeros(n), np.zeros(n)
     W = np.zeros((n, m))
     for t in range(n):
+        cost = 0.0
+        if can_short is not None and (w < 0).any():
+            cost += float(-w[w < 0].sum()) * borrow   # fee on the short actually held during the day
         g = float(w @ R[t])
         if w.any():
             w = w * (1.0 + R[t]) / (1.0 + g)
         gross[t] = g
-        cost = 0.0
-        if t in fills:
-            tgt = fills[t]
-            if (tgt[~avail[t]] > 0).any():
-                bad = list(returns.columns[(tgt > 0) & ~avail[t]])
+        tgt = fills.get(t)
+        if can_short is not None:
+            banned = (w < 0) & ~can_short[t]
+            if banned.any():                       # force-cover shorts that became illegal today
+                tgt = (w if tgt is None else tgt).copy()
+                tgt[banned] = 0.0
+            if tgt is not None and ((tgt < 0) & ~can_short[t]).any():
+                tgt = tgt.copy()
+                tgt[(tgt < 0) & ~can_short[t]] = 0.0   # a new short on an unshortable name is not opened
+        if tgt is not None:
+            stuck = ~avail[t] & (np.abs(tgt - w) > 1e-12)
+            if stuck.any() and unpriced == "hold":
+                wanted = tgt.copy()
+                tgt = tgt.copy()
+                tgt[stuck] = w[stuck]
+                if t + 1 < n and (t + 1) not in fills:
+                    fills[t + 1] = wanted               # retry the original order next day
+            elif (np.abs(tgt[~avail[t]]) > 0).any():
+                bad = list(returns.columns[(np.abs(tgt) > 0) & ~avail[t]])
                 raise TimingError(f"{dates[t].date()}: target holds {bad} with no price that day")
             trade = np.abs(tgt - w)
             turn[t] = trade.sum()
-            cost = float(trade @ c)
+            ct = c if C is None else np.where(np.isnan(C[t]), c, C[t])
+            cost += float(trade @ ct)
             w = tgt.copy()
         net[t] = (1.0 + g) * (1.0 - cost) - 1.0
         W[t] = w

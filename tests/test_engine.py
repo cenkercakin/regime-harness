@@ -91,3 +91,44 @@ def test_metrics_and_month_ends():
     idx = pd.bdate_range("2026-01-01", "2026-03-31")
     me = month_end_dates(idx)
     assert [d.day for d in me] == [30, 27, 31]
+
+
+def _shortable(R, value=True):
+    return pd.DataFrame(value, index=R.index, columns=R.columns)
+
+
+def test_short_profits_when_asset_falls_and_pays_borrow():
+    R = rets([[0.0, 0.0], [0.0, 0.0], [-0.10, 0.0], [0.0, 0.0]])
+    tg = pd.DataFrame({"A": [-0.5], "B": [0.5]}, index=[R.index[0]])
+    rules = backtest.ShortRules(_shortable(R), borrow_bps_annual=252 * 10, periods_per_year=252)   # 10 bps per day
+    out = backtest.run(tg, R, FREE, lag=1, shorts=rules).returns
+    assert out.iloc[2] == pytest.approx((1 + 0.05) * (1 - 0.0005) - 1)   # +5% on half short, less one day's borrow
+
+
+def test_ban_forces_cover_and_blocks_new_shorts():
+    R = rets([[0.0, 0.0]] * 6)
+    sh = _shortable(R)
+    sh.iloc[3:, 0] = False                              # ban on A from day 3
+    tg = pd.DataFrame({"A": [-0.5, -0.5], "B": [0.5, 0.5]}, index=[R.index[0], R.index[3]])
+    w = backtest.run(tg, R, FREE, lag=1, shorts=backtest.ShortRules(sh, 0.0)).weights
+    assert w.iloc[2]["A"] == pytest.approx(-0.5)
+    assert w.iloc[3]["A"] == 0.0 and w.iloc[5]["A"] == 0.0   # covered, and not re-opened during the ban
+
+
+def test_short_limits():
+    R = rets([[0.0, 0.0]] * 3)
+    rules = backtest.ShortRules(_shortable(R))
+    with pytest.raises(ValueError):          # gross 2.4 > 2
+        backtest.run(pd.DataFrame({"A": [-1.2], "B": [1.2]}, index=[R.index[0]]), R, FREE, shorts=rules)
+    with pytest.raises(ValueError):          # net short
+        backtest.run(pd.DataFrame({"A": [-0.8], "B": [0.2]}, index=[R.index[0]]), R, FREE, shorts=rules)
+    with pytest.raises(ValueError):          # shorts without rules
+        backtest.run(pd.DataFrame({"A": [-0.5], "B": [0.5]}, index=[R.index[0]]), R, FREE)
+
+
+def test_suspended_stock_is_held_not_traded_in_hold_mode():
+    R = rets([[0.0, 0.0], [np.nan, 0.0], [0.05, 0.0], [0.0, 0.0]])
+    tg = pd.DataFrame({"A": [1.0], "B": [0.0]}, index=[R.index[0]])
+    first = backtest.run(tg, R, FREE, lag=1, unpriced="hold")      # buy A on day 1: A suspended
+    assert first.weights.iloc[1]["A"] == 0.0                       # could not buy on the suspended day
+    assert first.weights.iloc[2]["A"] == pytest.approx(1.0)        # bought the next day it traded

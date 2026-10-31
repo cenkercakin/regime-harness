@@ -7,7 +7,8 @@ reach paper trading.
 - **Phase 1 (done):** data layer, snapshot store, trial ledger, daily pull.
 - **Phase 2 (done):** backtest engine and validation gate.
 - **Phase 3 (done):** 31-strategy library + monthly selector (hard switch / soft tilt / blend). Results: `reports/phase3-2026-10-31.md`.
-- Next: LLM idea loop (Phase 4), BIST/TEFAS sleeves (Phase 5).
+- **Phase 5 (done):** BIST data (630 stocks, XU100), short selling with SPK ban calendar, 11 stock strategies incl. correlation-breakdown pairs. Results: `reports/phase5-bist-2026-10-31.md`.
+- Next: LLM idea loop (Phase 4), TEFAS sleeve.
 
 ## What's here
 
@@ -36,6 +37,7 @@ python -m harness research calibration   # 200 random variants; must FAIL
 python -m harness research tsmom         # TSMOM family through the gate
 python -m harness research tsmom --vault # one-time vault test, survivors only
 python -m harness research library --selectors-only  # selectors only; strategies already logged
+python -m harness research bist          # BIST stock library through the gate
 python -m harness ledger                 # trial counts per venue
 ```
 
@@ -84,6 +86,10 @@ TSMOM variants vs the equal-weight benchmark of VT, SPY, EFA, EEM, TLT and GLD, 
 - The ledger has no delete or edit function, and `verify` catches manual edits.
 
 ## Known limits
+
+- **BIST is survivorship-biased:** `config/bist_tickers.txt` lists only companies listed today, so delisted failures are missing and BIST results are optimistic.
+- XU100 from Yahoo is a price index (no dividends), so "vs XU100" overstates stock strategies by roughly the dividend yield; the report also shows an equal-weight top-100 benchmark.
+- Short-selling bans in `config/short_bans.csv` are researched from SPK/KAP news with sources; shorts are force-covered on ban days (the real rule may only block new shorts). Borrow fee is a 5% a year placeholder.
 
 - Costs are placeholders (10 bps per side for ETFs, 15 bps for crypto) until Midas's published fees and FX spread are checked.
 - Cash earns nothing unless a strategy holds BIL explicitly.
