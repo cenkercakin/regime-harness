@@ -6,6 +6,8 @@ import argparse
 import sys
 from datetime import date, datetime, timezone
 
+import pandas as pd
+
 from .config import SOURCES
 from .ledger import TrialLedger
 from .pull import pull_source
@@ -55,7 +57,7 @@ def cmd_status(args) -> int:
     for name in store.sources():
         entries = store.manifest(name)["snapshots"]
         df = store.load(name)
-        last = df["date"].max()
+        last = pd.Timestamp(df["date"].max()).date()
         revisions = sum(e["rows_revised"] for e in entries)
         print(f"{name:<10} {len(entries):>9} {len(df):>8} {str(last):>11} {(today - last).days:>4}d {revisions:>9}")
     return 0

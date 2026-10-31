@@ -11,7 +11,7 @@ from .store import SnapshotStore
 
 
 def _crypto_fetch(cfg, start, end):
-    return crypto.fetch_daily(cfg["symbols"], start, end, exchange_id=cfg["exchange"])
+    return crypto.fetch_daily(cfg["symbols"], start, end, exchange_id=cfg["exchange"], timeframe=cfg.get("timeframe", "1d"))
 
 
 def _yahoo_fetch(cfg, start, end):
@@ -57,7 +57,7 @@ def pull_source(store: SnapshotStore, name: str, cfg: dict, snapshot_date: date,
     entries = store.manifest(name)["snapshots"]
     max_dates = [e["max_date"] for e in entries if e.get("max_date")]
     if cfg.get("lookback_days") and max_dates:
-        start = max(start, date.fromisoformat(max(max_dates)) - timedelta(days=cfg["lookback_days"]))
+        start = max(start, date.fromisoformat(max(max_dates)[:10]) - timedelta(days=cfg["lookback_days"]))
 
     try:
         df = fetchers[cfg["loader"]](cfg, start, snapshot_date)

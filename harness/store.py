@@ -50,7 +50,11 @@ def normalize(df: pd.DataFrame) -> pd.DataFrame:
         raise StoreError(f"frame is missing key columns {missing}")
     out = df.copy()
     out["symbol"] = out["symbol"].astype(str)
-    out["date"] = pd.to_datetime(out["date"]).dt.date
+    dt = pd.to_datetime(out["date"])
+    if getattr(dt.dt, "tz", None) is not None:
+        dt = dt.dt.tz_convert("UTC").dt.tz_localize(None)
+    # Daily sources keep plain dates; intraday sources (any non-midnight bar) keep timestamps (UTC).
+    out["date"] = dt.dt.date if (dt == dt.dt.normalize()).all() else dt
     if out.duplicated(KEY).any():
         dups = out[out.duplicated(KEY, keep=False)].head(5)
         raise StoreError(f"duplicate (symbol, date) rows, e.g.\n{dups}")

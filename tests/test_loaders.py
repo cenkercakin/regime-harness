@@ -48,3 +48,28 @@ def test_yahoo_parses_multiindex_and_drops_end_day():
     assert df["date"].max() == date(2026, 10, 29)
     assert list(df.columns) == ["symbol", "date", "open", "high", "low", "close", "volume", "dividends", "splits"]
     assert "Adj Close" not in df.columns
+
+
+class FakeIntraday:
+    def __init__(self, tf_ms, first, last):
+        self.tf, self.first, self.last, self.calls = tf_ms, first, last, 0
+
+    def fetch_ohlcv(self, symbol, timeframe, since, limit):
+        self.calls += 1
+        if self.calls == 2:
+            raise type("NetworkError", (Exception,), {})("flaky")   # one transient failure
+        t = max(since, self.first)
+        out = []
+        while t <= self.last and len(out) < limit:
+            out.append([t, 1.0, 2.0, 0.5, 1.5, 10.0])
+            t += self.tf
+        return out
+
+
+def test_crypto_5m_timestamps_pagination_and_retry(monkeypatch):
+    monkeypatch.setattr(crypto.time, "sleep", lambda s: None)
+    ex = FakeIntraday(300_000, ms(date(2026, 10, 1)), ms(date(2026, 10, 3)))
+    df = crypto.fetch_daily(["BTC/USD"], date(2026, 10, 1), date(2026, 10, 3), exchange=ex, page_limit=100, timeframe="5m")
+    assert len(df) == 2 * 288                                   # two full days of 5-minute bars, end day excluded
+    assert pd.Timestamp(df["date"].iloc[1]) - pd.Timestamp(df["date"].iloc[0]) == pd.Timedelta(minutes=5)
+    assert not df.duplicated(["symbol", "date"]).any()

@@ -58,7 +58,7 @@ def check(
         stale = (snapshot_date - last).days
         if stale > max_stale_days:
             r.warnings.append(f"{sym}: last bar {last} is {stale} days old")
-        closes = g.sort_values("_d")["close"]
+        closes = g.sort_values("date")["close"]
         rets = closes.pct_change().abs()
         jumps = rets[rets > max_abs_daily_return]
         if len(jumps):

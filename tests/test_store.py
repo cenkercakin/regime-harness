@@ -113,3 +113,17 @@ def test_large_delta_is_split_into_parts_and_reloads(tmp_path, bars):
     df2 = bars([f"S{i}" for i in range(8)], "2026-01-01", 31)
     e2 = st.write("src", df2, "2026-02-02")
     assert "file" in e2 and len(st.load("src")) == 248
+
+
+def test_intraday_timestamps_round_trip(tmp_path):
+    idx = pd.date_range("2026-10-01", periods=600, freq="5min")
+    df = pd.DataFrame({"symbol": "BTC/USD", "date": idx, "open": 1.0, "high": 2.0, "low": 0.5, "close": np.linspace(1, 2, 600), "volume": 1.0})
+    st = SnapshotStore(tmp_path)
+    st.write("m5", df, "2026-10-04")
+    out = st.load("m5")
+    assert len(out) == 600 and pd.api.types.is_datetime64_any_dtype(out["date"])
+    more = pd.DataFrame({"symbol": "BTC/USD", "date": pd.date_range("2026-10-01", periods=700, freq="5min"), "open": 1.0, "high": 2.0, "low": 0.5,
+                         "close": np.r_[np.linspace(1, 2, 600), np.ones(100)], "volume": 1.0})
+    e = st.write("m5", more, "2026-10-05")
+    assert e["rows_new"] == 100 and e["rows_revised"] == 0
+    assert e["max_date"].startswith("2026-10-03")

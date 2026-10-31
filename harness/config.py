@@ -47,6 +47,17 @@ SOURCES = {
         "max_stale_days": 5,
         "max_abs_daily_return": 0.25,
     },
+    "crypto_5m": {
+        # 5-minute candles for intraday strategies (grid trading). ~105k bars per coin per year.
+        "loader": "crypto",
+        "exchange": "coinbaseexchange",
+        "timeframe": "5m",
+        "symbols": ["BTC/USD", "ETH/USD"],
+        "start": "2017-01-01",
+        "lookback_days": 2,
+        "max_stale_days": 2,
+        "max_abs_daily_return": 0.5,
+    },
     "bist": {
         # All currently listed BIST stocks. Survivorship-biased: delisted names are absent.
         "loader": "yahoo",
