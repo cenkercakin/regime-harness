@@ -158,6 +158,21 @@
         "BTC/USD",
         "ETH/USD"
       ]
+    },
+    {
+      "file": "2026-11-09.parquet",
+      "id": "2026-11-09",
+      "max_date": "2026-11-08 23:55:00",
+      "min_date": "2026-11-05 00:00:00",
+      "notes": [],
+      "rows_new": 576,
+      "rows_pulled": 2304,
+      "rows_revised": 0,
+      "sha256": "4df85bb4846cf3074c564aaf967202c2b1e9811473e68fa3af9fbe5494312486",
+      "symbols": [
+        "BTC/USD",
+        "ETH/USD"
+      ]
     }
   ],
   "source": "crypto_5m"
