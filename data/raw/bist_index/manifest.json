@@ -164,6 +164,21 @@
         "XU030.IS",
         "XU100.IS"
       ]
+    },
+    {
+      "file": "2026-11-11.parquet",
+      "id": "2026-11-11",
+      "max_date": "2026-11-10",
+      "min_date": "2010-01-04",
+      "notes": [],
+      "rows_new": 2,
+      "rows_pulled": 8438,
+      "rows_revised": 0,
+      "sha256": "89297eb8112034fee484f402308ef82a1154013491f331995497d85fcc05b08e",
+      "symbols": [
+        "XU030.IS",
+        "XU100.IS"
+      ]
     }
   ],
   "source": "bist_index"
