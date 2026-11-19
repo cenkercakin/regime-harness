@@ -399,6 +399,26 @@
         "TLT",
         "VT"
       ]
+    },
+    {
+      "file": "2026-11-19.parquet",
+      "id": "2026-11-19",
+      "max_date": "2026-11-18",
+      "min_date": "2008-01-02",
+      "notes": [],
+      "rows_new": 7,
+      "rows_pulled": 33135,
+      "rows_revised": 5,
+      "sha256": "b027d0b9a64940090f2593d0cc9336c44059f85be03b401bd3d26b4c72aa4f64",
+      "symbols": [
+        "BIL",
+        "EEM",
+        "EFA",
+        "GLD",
+        "SPY",
+        "TLT",
+        "VT"
+      ]
     }
   ],
   "source": "us_etfs"
