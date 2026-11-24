@@ -349,6 +349,20 @@
       "symbols": [
         "USDTRY=X"
       ]
+    },
+    {
+      "file": "2026-11-24.parquet",
+      "id": "2026-11-24",
+      "max_date": "2026-11-23",
+      "min_date": "2008-01-01",
+      "notes": [],
+      "rows_new": 1,
+      "rows_pulled": 4915,
+      "rows_revised": 0,
+      "sha256": "ec07fdc6cc2ce339d3f5090afad2273a9474f73848eba25bc5c16349721d502e",
+      "symbols": [
+        "USDTRY=X"
+      ]
     }
   ],
   "source": "fx"
